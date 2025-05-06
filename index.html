@@ -2,146 +2,120 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Wind Street Wellbeing Board</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <title>Wind Street Wellbeing Board Report</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 0;
       padding: 0;
+      margin: 0;
     }
     header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 10px 20px;
-      background-color: #f8f8f8;
+      gap: 20px;
+      padding: 20px;
       border-bottom: 1px solid #ccc;
     }
     header img {
       height: 80px;
     }
-    header h1 {
+    h1 {
       font-size: 20px;
-      text-align: right;
-      flex-grow: 1;
       margin: 0;
-      padding-left: 20px;
     }
     main {
       padding: 20px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 10pt;
-      margin-top: 20px;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 4px;
-      vertical-align: top;
-      text-align: left;
-    }
     button {
-      margin-bottom: 12px;
-      padding: 8px 14px;
-      font-size: 13px;
+      margin-bottom: 20px;
+      padding: 8px 16px;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
   <header>
     <img src="WSWB logo.jpeg" alt="Wind Street Wellbeing Board Logo">
-    <h1>Wind Street Wellbeing Board</h1>
+    <h1>Wind Street Wellbeing Board Report</h1>
   </header>
 
   <main>
-    <button onclick="downloadPDF()">Download as PDF</button>
-
-    <div id="table-container">
-      <table id="baserow-table">
-        <thead><tr id="table-header"></tr></thead>
-        <tbody id="table-body"><tr><td>Loading...</td></tr></tbody>
-      </table>
-    </div>
+    <button onclick="generatePDF()">📄 Download Report as PDF</button>
+    <p>Data will be loaded into the report from your Baserow database.</p>
   </main>
 
   <script>
     const API_TOKEN = 'wqSVdAnXmToq1GJQ5eYhR1y5J1hRjrRB';
     const TABLE_ID = 528792;
 
-    async function loadTable() {
+    async function generatePDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Add logo
+      const logo = new Image();
+      logo.src = 'WSWB logo.jpeg';
+
+      // Wait for logo to load
+      await new Promise((resolve) => {
+        logo.onload = () => {
+          doc.addImage(logo, 'JPEG', 40, 20, 60, 60);
+          resolve();
+        };
+      });
+
+      // Add title
+      doc.setFontSize(16);
+      doc.text('Wind Street Wellbeing Board Report', pageWidth / 2, 50, { align: 'center' });
+
+      // Get fields
       const fieldRes = await fetch(`https://api.baserow.io/api/database/fields/table/${TABLE_ID}/?user_field_names=true`, {
         headers: { Authorization: `Token ${API_TOKEN}` }
       });
       const fields = await fieldRes.json();
+      const fieldNames = fields.map(f => f.name);
 
-      const header = document.getElementById('table-header');
-      header.innerHTML = '';
-      fields.forEach(f => {
-        const th = document.createElement('th');
-        th.textContent = f.name;
-        header.appendChild(th);
-      });
-
+      // Get data rows
       const rowRes = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_ID}/?user_field_names=true`, {
         headers: { Authorization: `Token ${API_TOKEN}` }
       });
       const data = await rowRes.json();
-      const tbody = document.getElementById('table-body');
-      tbody.innerHTML = '';
 
-      data.results.forEach(row => {
-        const tr = document.createElement('tr');
-        fields.forEach(f => {
-          let val = row[f.name];
+      // Format rows
+      const rows = data.results.map(row =>
+        fieldNames.map(field => {
+          let val = row[field];
 
           if (Array.isArray(val)) {
-            val = val.map(v => v?.value ?? v?.name ?? JSON.stringify(v)).join(', ');
+            return val.map(v => v?.value ?? v?.name ?? JSON.stringify(v)).join(', ');
           } else if (typeof val === 'object' && val !== null) {
-            val = val.value ?? val.name ?? JSON.stringify(val);
+            return val.value ?? val.name ?? JSON.stringify(val);
+          } else {
+            return val ?? '';
           }
+        })
+      );
 
-          const td = document.createElement('td');
-          td.textContent = val ?? '';
-          tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
+      // Generate the table
+      doc.autoTable({
+        startY: 90,
+        head: [fieldNames],
+        body: rows,
+        styles: {
+          fontSize: 8,
+          cellPadding: 3
+        },
+        headStyles: {
+          fillColor: [41, 128, 185]
+        }
       });
+
+      doc.save('WSWB-report.pdf');
     }
-
-    async function downloadPDF() {
-      const { jsPDF } = window.jspdf;
-      const table = document.getElementById('table-container');
-
-      const canvas = await html2canvas(table, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-
-      const imgProps = pdf.getImageProperties(imgData);
-      let imgWidth = pageWidth;
-      let imgHeight = (imgProps.height * imgWidth) / imgProps.width;
-
-      if (imgHeight > pageHeight - 60) {
-        imgHeight = pageHeight - 60;
-        imgWidth = (imgProps.width * imgHeight) / imgProps.height;
-      }
-
-      const x = (pageWidth - imgWidth) / 2;
-      const y = 40;
-
-      pdf.setFontSize(14);
-      pdf.text("Wind Street Wellbeing Board", pageWidth / 2, 25, { align: "center" });
-      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
-      pdf.save('wind-street-wellbeing-data.pdf');
-    }
-
-    loadTable();
   </script>
 </body>
 </html>
