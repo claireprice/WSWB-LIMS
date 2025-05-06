@@ -41,7 +41,8 @@
       text-align: left;
     }
     button {
-      margin-bottom: 15px;
+      margin-bottom: 10px;
+      margin-right: 10px;
       padding: 8px 14px;
       font-size: 14px;
       cursor: pointer;
@@ -51,10 +52,11 @@
 <body>
   <header>
     <img src="WSWB logo.jpeg" alt="Wind Street Wellbeing Board Logo">
-    <h1>Wind Street Wellbeing Board</h1>
+    <h1>Wind Street Wellbeing Board Report</h1>
   </header>
 
   <main>
+    <button onclick="loadTable()">🔄 Refresh Table</button>
     <button onclick="downloadPDF()">📄 Download PDF</button>
     <div id="table-container">
       <table id="live-table">
@@ -111,28 +113,33 @@
     async function downloadPDF() {
       const { jsPDF } = window.jspdf;
       const tableContainer = document.getElementById('table-container');
+
       const canvas = await html2canvas(tableContainer, { scale: 2 });
-
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const imgProps = pdf.getImageProperties(imgData);
 
-      let imgWidth = pageWidth;
+      const marginX = 20;
+      const marginY = 60;
+      const maxWidth = pageWidth - 2 * marginX;
+      const maxHeight = pageHeight - marginY - 20;
+
+      let imgWidth = maxWidth;
       let imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-      if (imgHeight > pageHeight - 60) {
-        imgHeight = pageHeight - 60;
+      if (imgHeight > maxHeight) {
+        imgHeight = maxHeight;
         imgWidth = (imgProps.width * imgHeight) / imgProps.height;
       }
 
       const x = (pageWidth - imgWidth) / 2;
-      const y = 40;
+      const y = marginY;
 
       pdf.setFontSize(14);
-      pdf.text('Wind Street Wellbeing Board Report', pageWidth / 2, 25, { align: 'center' });
+      pdf.text('Wind Street Wellbeing Board Report', pageWidth / 2, 35, { align: 'center' });
       pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
       pdf.save('WSWB-table.pdf');
     }
