@@ -7,44 +7,57 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body {
-      font-family: Arial;
-      padding: 0;
+      font-family: Arial, sans-serif;
       margin: 0;
+      padding: 0;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 20px;
+      background-color: #f8f8f8;
+      border-bottom: 1px solid #ccc;
     }
     header img {
-      width: 100%;
-      max-height: 150px;
-      object-fit: cover;
-      display: block;
+      height: 80px;
+    }
+    header h1 {
+      font-size: 20px;
+      text-align: right;
+      flex-grow: 1;
+      margin: 0;
+      padding-left: 20px;
     }
     main {
       padding: 20px;
     }
     table {
-      border-collapse: collapse;
       width: 100%;
+      border-collapse: collapse;
+      font-size: 10pt;
       margin-top: 20px;
     }
     th, td {
       border: 1px solid #ccc;
-      padding: 6px;
+      padding: 4px;
+      vertical-align: top;
       text-align: left;
     }
     button {
-      margin-bottom: 15px;
-      padding: 8px 12px;
-      font-size: 14px;
-      cursor: pointer;
+      margin-bottom: 12px;
+      padding: 8px 14px;
+      font-size: 13px;
     }
   </style>
 </head>
 <body>
   <header>
-    <img src="Wind Street Wellbeing Board banner.png" alt="Wind Street Wellbeing Board Banner">
+    <img src="WSWB logo.jpeg" alt="Wind Street Wellbeing Board Logo">
+    <h1>Wind Street Wellbeing Board</h1>
   </header>
 
   <main>
-    <h2>Wind Street Wellbeing Board Data Table</h2>
     <button onclick="downloadPDF()">Download as PDF</button>
 
     <div id="table-container">
@@ -83,12 +96,16 @@
       data.results.forEach(row => {
         const tr = document.createElement('tr');
         fields.forEach(f => {
-          const val = row[f.name];
-          const displayVal = (typeof val === 'object' && val !== null && 'value' in val)
-            ? val.value
-            : val ?? '';
+          let val = row[f.name];
+
+          if (Array.isArray(val)) {
+            val = val.map(v => v?.value ?? v?.name ?? JSON.stringify(v)).join(', ');
+          } else if (typeof val === 'object' && val !== null) {
+            val = val.value ?? val.name ?? JSON.stringify(val);
+          }
+
           const td = document.createElement('td');
-          td.textContent = displayVal;
+          td.textContent = val ?? '';
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -98,21 +115,30 @@
     async function downloadPDF() {
       const { jsPDF } = window.jspdf;
       const table = document.getElementById('table-container');
-      const canvas = await html2canvas(table);
+
+      const canvas = await html2canvas(table, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL('image/png');
 
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'pt',
-        format: 'a4'
-      });
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
 
       const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      let imgWidth = pageWidth;
+      let imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save('wind-street-table.pdf');
+      if (imgHeight > pageHeight - 60) {
+        imgHeight = pageHeight - 60;
+        imgWidth = (imgProps.width * imgHeight) / imgProps.height;
+      }
+
+      const x = (pageWidth - imgWidth) / 2;
+      const y = 40;
+
+      pdf.setFontSize(14);
+      pdf.text("Wind Street Wellbeing Board", pageWidth / 2, 25, { align: "center" });
+      pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+      pdf.save('wind-street-wellbeing-data.pdf');
     }
 
     loadTable();
