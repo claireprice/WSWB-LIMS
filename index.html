@@ -114,9 +114,23 @@
       const { jsPDF } = window.jspdf;
       const tableContainer = document.getElementById('table-container');
 
+      // Expand the table container temporarily to show all rows
+      const originalHeight = tableContainer.style.height;
+      tableContainer.style.height = 'auto';
+      tableContainer.style.maxHeight = 'none';
+      window.scrollTo(0, 0); // ensure it's in view
+
+      // Wait for rendering to complete
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Capture table as canvas
       const canvas = await html2canvas(tableContainer, { scale: 2 });
       const imgData = canvas.toDataURL('image/png');
 
+      // Restore original height
+      tableContainer.style.height = originalHeight || '';
+
+      // Create PDF
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
@@ -139,7 +153,7 @@
       const y = marginY;
 
       pdf.setFontSize(14);
-      pdf.text('Wind Street Wellbeing Board Report', pageWidth / 2, 35, { align: 'center' });
+      pdf.text('Wind Street Wellbeing Board LIMS', pageWidth / 2, 35, { align: 'center' });
       pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
       pdf.save('WSWB-table.pdf');
     }
