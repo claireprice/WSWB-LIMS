@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Wind Street Wellbeing Board</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      padding: 0;
+      margin: 0;
+    }
+    header img {
+      width: 100%;
+      max-height: 150px;
+      object-fit: cover;
+      display: block;
+    }
+    main {
+      padding: 20px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: left;
+    }
+    button {
+      margin-bottom: 15px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="Wind Street Wellbeing Board banner.png" alt="Wind Street Wellbeing Board Banner">
+  </header>
+
+  <main>
+    <h2>Wind Street Wellbeing Board Data Table</h2>
+    <button onclick="downloadPDF()">Download as PDF</button>
+
+    <div id="table-container">
+      <table id="baserow-table">
+        <thead><tr id="table-header"></tr></thead>
+        <tbody id="table-body"><tr><td>Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const API_TOKEN = 'wqSVdAnXmToq1GJQ5eYhR1y5J1hRjrRB';
+    const TABLE_ID = 528792;
+
+    async function loadTable() {
+      const fieldRes = await fetch(`https://api.baserow.io/api/database/fields/table/${TABLE_ID}/?user_field_names=true`, {
+        headers: { Authorization: `Token ${API_TOKEN}` }
+      });
+      const fields = await fieldRes.json();
+
+      const header = document.getElementById('table-header');
+      header.innerHTML = '';
+      fields.forEach(f => {
+        const th = document.createElement('th');
+        th.textContent = f.name;
+        header.appendChild(th);
+      });
+
+      const rowRes = await fetch(`https://api.baserow.io/api/database/rows/table/${TABLE_ID}/?user_field_names=true`, {
+        headers: { Authorization: `Token ${API_TOKEN}` }
+      });
+      const data = await rowRes.json();
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+
+      data.results.forEach(row => {
+        const tr = document.createElement('tr');
+        fields.forEach(f => {
+          const val = row[f.name];
+          const displayVal = (typeof val === 'object' && val !== null && 'value' in val)
+            ? val.value
+            : val ?? '';
+          const td = document.createElement('td');
+          td.textContent = displayVal;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const table = document.getElementById('table-container');
+      const canvas = await html2canvas(table);
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'pt',
+        format: 'a4'
+      });
+
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('wind-street-table.pdf');
+    }
+
+    loadTable();
+  </script>
+</body>
+</html>
